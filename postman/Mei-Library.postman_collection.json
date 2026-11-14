@@ -1,0 +1,63 @@
+{
+  "info": {
+    "name": "Mei Library API",
+    "description": "Kontrak dan skenario uji Laravel Sanctum API. Jalankan register atau login dahulu; token disimpan otomatis pada collection variable.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000/api" },
+    { "key": "token", "value": "" },
+    { "key": "bookId", "value": "1" },
+    { "key": "createdBookId", "value": "" },
+    { "key": "idempotencyKey", "value": "a9436ff9-48e5-4916-8fd0-96fb67e5ab32" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register (public, 201)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Mei Admin\",\n  \"email\": \"mei.{{$guid}}@example.test\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\"\n}" }, "url": "{{baseUrl}}/auth/register" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Register returns 201', () => pm.response.to.have.status(201));", "const body = pm.response.json();", "if (body.token) pm.collectionVariables.set('token', body.token);"] } }]
+        },
+        {
+          "name": "Login valid (public, 200)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@meilibrary.local\",\n  \"password\": \"password\"\n}" }, "url": "{{baseUrl}}/auth/login" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Valid login returns 200', () => pm.response.to.have.status(200));", "const body = pm.response.json();", "if (body.token) pm.collectionVariables.set('token', body.token);"] } }]
+        },
+        { "name": "Login invalid password (422)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@meilibrary.local\",\n  \"password\": \"salah\"\n}" }, "url": "{{baseUrl}}/auth/login" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Invalid login returns 422', () => pm.response.to.have.status(422));"] } }] },
+        { "name": "Register invalid (422)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"\",\n  \"email\": \"bukan-email\",\n  \"password\": \"123\",\n  \"password_confirmation\": \"beda\"\n}" }, "url": "{{baseUrl}}/auth/register" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Invalid registration returns 422', () => pm.response.to.have.status(422));"] } }] }
+      ]
+    },
+    {
+      "name": "Books (Bearer token)",
+      "item": [
+        { "name": "List books sorted by title A-Z (200)", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/books?sort=title&direction=asc" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('List books returns 200', () => pm.response.to.have.status(200));"] } }] },
+        { "name": "Filter genre and sort stock desc (200)", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/books?genre=Fiksi&sort=stock&direction=desc" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Filter and sort returns 200', () => pm.response.to.have.status(200));"] } }] },
+        { "name": "List without token (401)", "request": { "method": "GET", "url": "{{baseUrl}}/books" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Unauthenticated access returns 401', () => pm.response.to.have.status(401));"] } }] },
+        { "name": "Add book (201)", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"Contoh Buku API\",\n  \"genre\": \"Fiksi\",\n  \"stock\": 5\n}" }, "url": "{{baseUrl}}/books" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Add book returns 201', () => pm.response.to.have.status(201));", "const body = pm.response.json();", "if (body.data) pm.collectionVariables.set('createdBookId', body.data.id);"] } }] },
+        { "name": "Add invalid book (422)", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"\",\n  \"genre\": \"Fiksi\",\n  \"stock\": -2\n}" }, "url": "{{baseUrl}}/books" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Invalid book returns 422', () => pm.response.to.have.status(422));"] } }] }
+      ]
+    },
+    {
+      "name": "Loans (Bearer token)",
+      "item": [
+        { "name": "List loan history (200)", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/loans" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Loan history returns 200', () => pm.response.to.have.status(200));"] } }] },
+        { "name": "Create multi-book loan (201; valid integer quantities)", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"borrower_name\": \"Ayu Putri\",\n  \"phone_number\": \"081234567890\",\n  \"due_date\": \"2026-12-01\",\n  \"idempotency_key\": \"{{idempotencyKey}}\",\n  \"items\": [{\"book_id\": 1, \"quantity\": 2}, {\"book_id\": 2, \"quantity\": 1}]\n}" }, "url": "{{baseUrl}}/loans" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Valid loan returns 201', () => pm.response.to.have.status(201));"] } }] },
+        { "name": "Repeat same loan request (200; no duplicate/no second stock deduction)", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"borrower_name\": \"Ayu Putri\",\n  \"phone_number\": \"081234567890\",\n  \"due_date\": \"2026-12-01\",\n  \"idempotency_key\": \"{{idempotencyKey}}\",\n  \"items\": [{\"book_id\": 1, \"quantity\": 2}, {\"book_id\": 2, \"quantity\": 1}]\n}" }, "url": "{{baseUrl}}/loans" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Repeated confirmation does not create another transaction', () => pm.response.to.have.status(200));"] } }] },
+        { "name": "Loan invalid quantity or insufficient stock (422; stock unchanged)", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"borrower_name\": \"Ayu Putri\",\n  \"phone_number\": \"081234567890\",\n  \"due_date\": \"2026-12-01\",\n  \"idempotency_key\": \"d89f72b5-e94f-4c80-b376-54ab0adba57a\",\n  \"items\": [{\"book_id\": {{bookId}}, \"quantity\": 999999}]\n}" }, "url": "{{baseUrl}}/loans" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Insufficient stock returns 422', () => pm.response.to.have.status(422));"] } }] }
+      ]
+    },
+    {
+      "name": "Cleanup (run after loan tests)",
+      "item": [
+        { "name": "Delete created book (200)", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/books/{{createdBookId}}" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Delete book returns 200', () => pm.response.to.have.status(200));"] } }] }
+      ]
+    },
+    {
+      "name": "Logout (run last)",
+      "item": [
+        { "name": "Logout current token (200)", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/auth/logout" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Logout returns 200', () => pm.response.to.have.status(200));"] } }] },
+        { "name": "Use revoked token after logout (401)", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/books" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Revoked token returns 401', () => pm.response.to.have.status(401));"] } }] }
+      ]
+    }
+  ]
+}
